@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from .llm import load_client_from_env
 from .prompts import BotConfig, build_prompt, summarize_context
-from .utils import clamp_chat_history, now_iso, safe_strip, write_jsonl
+from .utils import clamp_chat_history, now_iso, safe_strip, write_jsonl, strip_think_blocks
 
 
 HELP_TEXT = """
@@ -120,12 +120,12 @@ def main():
         prompt = build_prompt(question, cfg, chat_context=chat_context)
 
         # Token-ish control (rough)
-        max_new = 256 if cfg.marks == 2 else 512 if cfg.marks == 5 else 700
+        max_new = 256 if cfg.marks == 2 else 650 if cfg.marks == 5 else 900
         temperature = 0.2 if cfg.mode in ("explain", "exam", "notes") else 0.1
 
         try:
             result = client.generate(prompt, max_new_tokens=max_new, temperature=temperature)
-            answer = safe_strip(result.text)
+            answer = safe_strip(strip_think_blocks(result.text))
         except Exception as e:
             print(f"\n[Error] {e}\n")
             print("Try: model google/flan-t5-base  (or wait and retry if rate-limited)\n")

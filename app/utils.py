@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -41,3 +42,13 @@ def sleep_backoff(attempt: int) -> None:
     
     t = min(8, 2 ** attempt)
     time.sleep(t)
+
+def strip_think_blocks(text:str) ->str:
+    """
+    Removes model 'reasoning' tags like:
+    <think> ... </think>
+    Works even if multiline.
+    """
+    if not text:
+        return ""
+    return re.sub(r"<think>.*?</think>","",text, flags=re.DOTALL).strip()
