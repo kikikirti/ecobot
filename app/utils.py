@@ -1,7 +1,7 @@
 import json
 import os
-import time
 import re
+import time
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -22,12 +22,8 @@ def write_jsonl(path: str, record: Dict[str, Any]) -> None:
 
 
 def clamp_chat_history(messages, max_turns: int = 6):
-    """
-    Keep only the last `max_turns` user+assistant pairs to avoid prompt bloat.
-    """
     if not messages:
         return []
-    
     keep = max_turns * 2
     return messages[-keep:]
 
@@ -39,16 +35,18 @@ def safe_strip(text: Optional[str]) -> str:
 
 
 def sleep_backoff(attempt: int) -> None:
-    
-    t = min(8, 2 ** attempt)
-    time.sleep(t)
+    time.sleep(min(8, 2 ** attempt))
 
-def strip_think_blocks(text:str) ->str:
+
+def strip_think_blocks(text: str) -> str:
     """
-    Removes model 'reasoning' tags like:
-    <think> ... </think>
-    Works even if multiline.
+    Remove model reasoning blocks.
+    Handles both:
+      <think> ... </think>
+      <think> ... (missing closing tag)
     """
     if not text:
         return ""
-    return re.sub(r"<think>.*?</think>","",text, flags=re.DOTALL).strip()
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<think>.*$", "", text, flags=re.DOTALL | re.IGNORECASE)
+    return text.strip()

@@ -4,7 +4,7 @@ from typing import Optional
 
 import requests
 
-from .utils import safe_strip, sleep_backoff
+from .utils import sleep_backoff, safe_strip
 
 
 @dataclass
@@ -14,71 +14,62 @@ class LLMResult:
     raw_status: int
 
 
-class HFRouterChatClient:
+class OllamaClient:
     """
-    Hugging Face Router - OpenAI compatible Chat Completions API.
+    Minimal Ollama client using /api/chat (non-streaming).
+    """
 
-    Base URL: https://router.huggingface.co/v1
-    Endpoint: /chat/completions
-    """
-    def __init__(self, token: str, model: str):
-        if not token:
-            raise ValueError("HF_TOKEN missing. Add it to your .env file.")
-        if not model:
-            raise ValueError("HF_MODEL missing. Add it to your .env file.")
-        self.token = token
+    def __init__(self, host: str, model: str):
+        self.host = host.rstrip("/")
         self.model = model
-        self.base_url = "https://router.huggingface.co/v1"
 
     def set_model(self, model: str) -> None:
         self.model = model
 
-    def _headers(self):
-        return {
-            "Authorization": f"Bearer {self.token}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-
-    def generate(self, prompt: str, max_new_tokens: int = 512, temperature: float = 0.2) -> LLMResult:
-        url = f"{self.base_url}/chat/completions"
+    def generate(self, prompt: str, max_new_tokens: int = 256, temperature: float = 0.2) -> LLMResult:
+        url = f"{self.host}/api/chat"
+        # inside OllamaClient.generate()
 
         payload = {
             "model": self.model,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": temperature,
-            "max_tokens": max_new_tokens,
-        }
+            "messages": [{"role": "user", "content": prompt}],
+            "options": {
+                "num_predict": int(max_new_tokens),
+                "temperature": float(temperature),
+                "num_ctx": 512,            # smaller ctx = faster
+                "num_thread": 8,           # tune (see note below)
+                "top_p": 0.9,
+                "repeat_penalty": 1.1,
+                "mirostat": 0,
+                "stop": [
+                    "\nYou>",               # prevents drifting into chat loop
+                    "\nUser>",
+                    "\nBOT>",
+                    "\nBot>",
+                ],
+            },
+            "stream": False,
+            }
 
         last_err: Optional[str] = None
         for attempt in range(3):
             try:
-                r = requests.post(url, headers=self._headers(), json=payload, timeout=60)
+                r = requests.post(url, json=payload, timeout=120)
                 status = r.status_code
 
                 if status in (429, 503, 504):
-                    last_err = f"Temporary HF router error {status}: {safe_strip(r.text)}"
+                    last_err = f"Ollama temporary error {status}: {safe_strip(r.text)}"
                     sleep_backoff(attempt)
                     continue
 
-                data = r.json() if "application/json" in r.headers.get("content-type", "") else None
-
                 if status >= 400:
-                    msg = safe_strip(str(data)) if data is not None else safe_strip(r.text)
-                    raise RuntimeError(f"HF Router API error {status}: {msg}")
+                    raise RuntimeError(f"Ollama error {status}: {safe_strip(r.text)}")
 
-                text = ""
-                if isinstance(data, dict):
-                    choices = data.get("choices") or []
-                    if choices and isinstance(choices[0], dict):
-                        message = choices[0].get("message") or {}
-                        text = message.get("content") or ""
-
-                text = safe_strip(text)
-                if not text:
-                    raise RuntimeError("Empty response from router. Try a different HF_MODEL.")
+                data = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+                msg = (data or {}).get("message") or {}
+                text = msg.get("content") or ""
+                if not text.strip():
+                    raise RuntimeError("Empty response from Ollama. Check model/server.")
 
                 return LLMResult(text=text, used_model=self.model, raw_status=status)
 
@@ -86,10 +77,10 @@ class HFRouterChatClient:
                 last_err = str(e)
                 sleep_backoff(attempt)
 
-        raise RuntimeError(last_err or "HF Router API call failed after retries.")
+        raise RuntimeError(last_err or "Ollama call failed after retries.")
 
 
-def load_client_from_env() -> HFRouterChatClient:
-    token = os.getenv("HF_TOKEN", "").strip()
-    model = os.getenv("HF_MODEL", "").strip()
-    return HFRouterChatClient(token=token, model=model)
+def load_client_from_env() -> OllamaClient:
+    host = os.getenv("OLLAMA_HOST", "http://localhost:11434").strip()
+    model = os.getenv("OLLAMA_MODEL", "phi3:mini").strip()
+    return OllamaClient(host=host, model=model)
