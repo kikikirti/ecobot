@@ -1,7 +1,7 @@
 import json
 import os
-import re
 import time
+import re
 from datetime import datetime
 from typing import Any, Dict, Optional
 
@@ -29,22 +29,18 @@ def clamp_chat_history(messages, max_turns: int = 6):
 
 
 def safe_strip(text: Optional[str]) -> str:
+    
     if not text:
         return ""
     return " ".join(text.strip().split())
 
 
 def sleep_backoff(attempt: int) -> None:
-    time.sleep(min(8, 2 ** attempt))
+    t = min(8, 2 ** attempt)
+    time.sleep(t)
 
 
 def strip_think_blocks(text: str) -> str:
-    """
-    Remove model reasoning blocks.
-    Handles both:
-      <think> ... </think>
-      <think> ... (missing closing tag)
-    """
     if not text:
         return ""
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)

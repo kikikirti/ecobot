@@ -1,51 +1,123 @@
 # 📘 Economics Explainer Bot (CLI)
 
-An **exam-oriented Economics chatbot** designed for **IGNOU / university exams**, built as a **CLI application** using **Ollama (local LLMs)**.
-
-The bot generates **structured, exam-ready answers** with strict formatting and mark-wise length control.
+A lightweight offline CLI tool that generates **IGNOU-style economics answers** in three formats — **Notes, MCQs, and PYQ guidance** — with strict exam-oriented templates. Runs on **Ollama (CPU-friendly, no API required)** and supports marks-based responses (2/5/10).
 
 ---
 
-## ✨ Features
+## 🎯 Features
 
-### 🔹 Core Capabilities
-- Exam-friendly explanations
-- Structured outputs (no free-form chat)
-- Mark-wise answers: **2 / 5 / 10 marks**
-- Runs **fully offline** using Ollama
-
-### 🔹 IGNOU-Style Slash Commands (Milestone 3)
-- `/notes <topic>` → Short exam notes  
-- `/mcq <topic>` → 5 MCQs + Answer Key  
-- `/pyq <topic>` → How to answer in exam (structure + expectations)
-
-### 🔹 Output Discipline
-- Guaranteed section completion (no truncation)
-- Auto-retries and formatting guards
-- Suitable for **written exam preparation**
+- 📝 Notes mode (Key Terms, Core Points, Diagram, Exam Questions)  
+- 🧠 MCQ mode (5 Questions + Answer Key)  
+- 🏛 PYQ mode (Answer-structure guidance)  
+- 🎚 Marks-aware output (2/5/10)  
+- 🛡 Template validation + fallback reliability  
+- 💾 JSONL logging for all responses  
+- ⚡ Fully offline, CLI-based, fast
 
 ---
 
-## 🧠 Supported Modes
+## 📂 Project Structure
 
-| Mode | Purpose |
-|-----|--------|
-| `notes` | Exam notes (Key terms, core points, diagram, questions) |
-| `mcq` | Multiple-choice questions with answer key |
-| `pyq` | Exam writing guidance |
-| `explain` | Concept explanation (structured) |
-| `numerical` | Step-by-step numerical answers |
-| `exam` | Full descriptive answers |
-
+```
+app/
+  main.py
+  llm.py
+  prompts.py
+  utils.py
+logs/
+  chat.jsonl   
+```
 ---
 
-## ⚙️ Setup Instructions
+## ⚙️ Setup
 
-### 1️⃣ Install Ollama
-Download and install Ollama from:  
-👉 https://ollama.com
-
-Pull a lightweight model (recommended for CPU):
 ```bash
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ollama pull llama3.2:1b
 ```
+
+Optional `.env`:
+
+```env
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=llama3.2:1b
+ECON_BOT_LOG=logs/chat.jsonl
+```
+
+Run:
+
+```bash
+python -m app.main
+```
+
+---
+
+## 🧩 Commands
+
+```
+/notes <topic>
+/mcq <topic>
+/pyq <topic>
+marks 2|5|10
+/demo
+exit
+```
+
+---
+
+## 🎬 Demo 
+
+```powershell
+@"
+/demo
+exit
+"@ | python -m app.main
+```
+
+---
+
+## 🧪 Test Execution
+
+```powershell
+@"
+/mcq monetary policy
+/pyq monetary policy
+/notes monetary policy
+exit
+"@ | python -m app.main
+```
+
+---
+
+## 📜 Logs (JSONL)
+
+View last entries:
+
+```powershell
+Get-Content logs/chat.jsonl -Tail 5
+```
+
+Example record:
+
+```json
+{
+  "mode": "mcq",
+  "question": "monetary policy",
+  "validated": true,
+  "used_fallback": true
+}
+```
+
+---
+
+## 🧠 Purpose
+
+Designed for **exam-disciplined learning**, structured formatting, and reliable offline generation using strict templates and validation safeguards.
+
+---
+
+## 🧾 License
+
+MIT — free to use and extend.

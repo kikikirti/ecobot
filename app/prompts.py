@@ -1,64 +1,127 @@
 from dataclasses import dataclass
 from typing import Literal
 
-Mode = Literal["explain", "numerical", "notes", "mcq", "exam", "pyq"]
+Mode = Literal["notes", "mcq", "pyq"]
 
 
 @dataclass
 class BotConfig:
-    mode: Mode = "explain"
+    mode: Mode = "notes"
     marks: int = 5
     topic: str = ""
 
 
-SYSTEM_RULES = """You are an Economics assistant.
-Do not invent official statistics.
-Return ONLY what is asked. No extra text. No code blocks.
-Keep short and exam-friendly.
+SYSTEM_RULES = """You are an Economics Explainer Bot for IGNOU-style answers.
+
+STRICT OUTPUT RULES:
+- Output MUST be plain text.
+- Use '-' for bullet points.
+- Keep normal spaces between words.
+- Follow the template EXACTLY.
+- Do NOT add extra explanations or sections.
+- Do NOT write essays.
+- If asked MCQ, output only MCQs and answer key (nothing else).
+- If asked PYQ, output only PYQ guidance (nothing else).
 """
 
 
-def notes_fill_prompt(topic: str, marks: int) -> str:
-    # Ask model to only generate small content chunks
+FORMAT_NOTES = """Return in this exact structure:
+
+Key Terms:
+- <term 1>
+- <term 2>
+- <term 3>
+- <term 4>
+- <term 5>
+
+Core Points:
+1. <point 1>
+2. <point 2>
+3. <point 3>
+
+Diagram:
+- Axes: <x-axis>, <y-axis>
+- Shift: <what shifts and why>
+
+Exam Questions:
+1) <question 1>
+2) <question 2>
+3) <question 3>
+"""
+
+FORMAT_MCQ = """Return ONLY in this exact structure:
+
+MCQs:
+1. <question>
+A) <option>
+B) <option>
+C) <option>
+D) <option>
+
+2. <question>
+A) <option>
+B) <option>
+C) <option>
+D) <option>
+
+3. <question>
+A) <option>
+B) <option>
+C) <option>
+D) <option>
+
+4. <question>
+A) <option>
+B) <option>
+C) <option>
+D) <option>
+
+5. <question>
+A) <option>
+B) <option>
+C) <option>
+D) <option>
+
+Answer Key:
+1-<A/B/C/D>, 2-<A/B/C/D>, 3-<A/B/C/D>, 4-<A/B/C/D>, 5-<A/B/C/D>
+"""
+
+FORMAT_PYQ = """Return ONLY in this exact structure:
+
+How to structure the answer (Intro/Body/Conclusion):
+- <intro line>
+- <body line>
+- <conclusion line>
+
+Key points to include:
+- <point>
+- <point>
+- <point>
+- <point>
+
+Common examiner expectations:
+- <expectation>
+- <expectation>
+- <expectation>
+
+2 sample past-year style questions:
+1) <question 1>
+2) <question 2>
+"""
+
+
+def mode_format(mode: Mode) -> str:
+    return {"notes": FORMAT_NOTES, "mcq": FORMAT_MCQ, "pyq": FORMAT_PYQ}[mode]
+
+
+def build_prompt_fast(user_question: str, cfg: BotConfig) -> str:
+    topic_line = f"Topic context: {cfg.topic}\n" if cfg.topic.strip() else ""
     return (
         f"{SYSTEM_RULES}\n"
-        f"Task: Provide content for IGNOU exam NOTES on topic: {topic}\n"
-        f"Return exactly:\n"
-        f"1) Key terms: 6 short terms (comma-separated)\n"
-        f"2) Core points: {3 if marks==2 else 4 if marks==5 else 6} short numbered points (1 line each)\n"
-        f"3) Diagram: axes + one curve/shift line\n"
-        f"4) 3 likely exam questions (3 lines)\n"
+        f"{topic_line}"
+        f"Mode: {cfg.mode}\n"
+        f"Marks: {cfg.marks}\n\n"
+        f"{mode_format(cfg.mode)}\n"
+        f"User question: {user_question}\n\n"
+        f"Answer:"
     )
-
-
-def mcq_fill_prompt(topic: str) -> str:
-    return (
-        f"{SYSTEM_RULES}\n"
-        f"Task: Create 5 MCQs on: {topic}\n"
-        f"Return exactly 5 questions. Each question must have options A/B/C/D.\n"
-        f"Then return Answer Key in one line like: 1-A, 2-C, 3-B, 4-D, 5-A\n"
-        f"No explanations.\n"
-    )
-
-
-def pyq_fill_prompt(topic: str) -> str:
-    return (
-        f"{SYSTEM_RULES}\n"
-        f"Task: PYQ exam-writing guidance for: {topic}\n"
-        f"Return exactly:\n"
-        f"- Structure (Intro/Body/Conclusion) in 3 bullets\n"
-        f"- Key points to include (5 bullets)\n"
-        f"- Common examiner expectations (3 bullets)\n"
-        f"- 2 sample past-year style questions (numbered 1 and 2)\n"
-    )
-
-
-def summarize_context(messages) -> str:
-    if not messages:
-        return ""
-    lines = []
-    for m in messages[-6:]:
-        role = m.get("role", "user")
-        content = m.get("content", "")
-        lines.append(f"{role.upper()}: {content}")
-    return "\n".join(lines)
